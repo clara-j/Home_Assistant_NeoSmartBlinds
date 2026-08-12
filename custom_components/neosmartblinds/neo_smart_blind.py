@@ -120,6 +120,7 @@ class NeoCommandSender(object):
         self._device = device
         self._motor_code = motor_code
         self._was_connected = None
+        self._rail = None
 
     def on_io_complete(self, result=None):
         """
@@ -145,6 +146,15 @@ class NeoCommandSender(object):
     def motor_code(self):
         return self._motor_code
 
+    @property
+    def hub_id(self):
+        return self._the_id
+
+    def set_rail(self, rail):
+        self._rail = rail
+
+    def device_id(self):
+        return "{}.{}.{}".format(self._the_id, self._device, self._rail if self._rail else 1)
 
     def register_parents(self, device):
         global parents
@@ -269,6 +279,8 @@ class NeoSmartBlind:
         else:
             _LOGGER.error("{}, unknown protocol: {}, please use: http or tcp".format(device, protocol))
             return
+
+        self._command_sender.set_rail(rail)
 
         if parent_code is not None and len(parent_code) > 0:
             self._command_sender.register_parents(parent_code)

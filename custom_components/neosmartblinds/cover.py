@@ -16,6 +16,7 @@ from homeassistant.components.cover import (
     CoverEntityFeature,
     ATTR_CURRENT_POSITION
 )
+from homeassistant.helpers.device_registry import DeviceInfo
 
 from homeassistant.const import (
     CONF_HOST,
@@ -339,6 +340,16 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
     def device_class(self):
         """Define this cover as either window/blind/awning/shutter."""
         return "blind"
+
+    @property
+    def device_info(self):
+        """Return device information for this entity."""
+        return DeviceInfo(
+            identifiers={(DATA_NEOSMARTBLINDS, self._client.unique_id(DATA_NEOSMARTBLINDS))},
+            name=self._name,
+            manufacturer="NeoSmartBlinds",
+            model="Smart Blinds Hub"
+        )
         
     @property
     def is_closed(self):
@@ -559,9 +570,6 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
                 """Assume anything greater less than 2 is just a close command"""
                 pos = 0
 
-            """Check for any change in position, only act if it has changed"""
-            delta = 0
-
             """
             Work out whether the blind is already moving.
             If yes, work out whether it is moving in the right direction.
@@ -585,19 +593,17 @@ class NeoSmartBlindsCover(CoverEntity, RestoreEntity):
                 delta = pos - self._current_position
 
             if delta > 0:
-                if self._percent_support == IMPLICIT_POSITIONING or pos == 100:
+                if self._percent_support == EXPLICIT_POSITIONING:
+                    await self._client.async_set_position_by_percent(pos)
+                elif self._percent_support == IMPLICIT_POSITIONING or pos >= 100:
                     await self.async_open_cover_to(pos)
-                elif self._percent_support == EXPLICIT_POSITIONING:
-                    await self.async_open_cover_to(
-                        pos, 
-                        ft.partial(self._client.async_set_position_by_percent, pos)
-                    )
 
-            if delta < 0:
-                if self._percent_support == IMPLICIT_POSITIONING or pos == 0:
+            elif delta < 0:
+                if self._percent_support == EXPLICIT_POSITIONING:
+                    await self._client.async_set_position_by_percent(pos)
+                elif self._percent_support == IMPLICIT_POSITIONING or pos <= 0:
                     await self.async_close_cover_to(pos)
-                elif self._percent_support == EXPLICIT_POSITIONING:
-                    await self.async_close_cover_to(
-                        pos, 
-                        ft.partial(self._client.async_set_position_by_percent, pos)
-                    )
+
+            else:
+                if self._percent_support == EXPLICIT_POSITIONING:
+                    await self._client.async_set_position_by_percent(pos)
